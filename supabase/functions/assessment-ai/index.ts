@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 const actionSchema = z.discriminatedUnion("action", [
   z.object({
@@ -64,33 +64,33 @@ const actionSchema = z.discriminatedUnion("action", [
   }),
 ]);
 
-const model = "gemini-2.0-flash";
-const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+const model = "google/gemini-3-flash-preview";
+const lovableAiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
-const callGemini = async (systemInstruction: string, userPrompt: string) => {
-  if (!GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not configured");
+const callLovableAi = async (systemInstruction: string, userPrompt: string) => {
+  if (!LOVABLE_API_KEY) {
+    throw new Error("LOVABLE_API_KEY is not configured");
   }
 
-  const response = await fetch(`${geminiUrl}?key=${GEMINI_API_KEY}`, {
+  const response = await fetch(lovableAiUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
-      systemInstruction: {
-        parts: [{ text: systemInstruction }],
-      },
-      contents: [
+      model,
+      messages: [
+        { role: "system", content: systemInstruction },
         {
           role: "user",
-          parts: [{ text: userPrompt }],
+          content: userPrompt,
         },
       ],
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.4,
-      },
+      response_format: { type: "json_object" },
+      temperature: 0.4,
     }),
   });
 
@@ -99,30 +99,30 @@ const callGemini = async (systemInstruction: string, userPrompt: string) => {
     if (response.status === 429) {
       throw new Response(
         JSON.stringify({
-          error: "Gemini API quota exceeded",
-          details: "Your Gemini key has no remaining quota right now. Please enable billing or increase quota in Google AI Studio, then try again.",
+          error: "Lovable AI rate limit reached",
+          details: "The workspace has hit its current Lovable AI rate or usage limit. Please try again shortly, or top up Cloud & AI balance if needed.",
         }),
         { status: 429, headers: jsonHeaders },
       );
     }
 
-    if (response.status === 403) {
+    if (response.status === 402) {
       throw new Response(
         JSON.stringify({
-          error: "Gemini API access denied",
-          details: "This Gemini key cannot access the requested model. Please check model access and API permissions in Google AI Studio.",
+          error: "Lovable AI balance required",
+          details: "The workspace has exhausted its included AI balance. Add funds in Settings → Cloud & AI balance to continue.",
         }),
-        { status: 403, headers: jsonHeaders },
+        { status: 402, headers: jsonHeaders },
       );
     }
 
-    throw new Error(`Gemini API error [${response.status}]: ${rawText}`);
+    throw new Error(`Lovable AI error [${response.status}]: ${rawText}`);
   }
 
   const parsed = JSON.parse(rawText);
-  const content = parsed.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text ?? "").join("")?.trim();
+  const content = parsed.choices?.[0]?.message?.content?.trim();
   if (!content) {
-    throw new Error("Gemini returned an empty response");
+    throw new Error("Lovable AI returned an empty response");
   }
 
   return JSON.parse(content);
@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
     }
 
     if (parsed.data.action === "generate-map") {
-      const result = await callGemini(
+      const result = await callLovableAi(
         [
           "You are an assessment engine for candidate skill readiness.",
           "Return only valid JSON.",
@@ -309,7 +309,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const result = await callGemini(
+    const result = await callLovableAi(
       [
         "You are an interview evaluator for role-readiness assessment.",
         "Return only valid JSON.",

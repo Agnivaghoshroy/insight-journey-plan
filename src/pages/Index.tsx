@@ -171,7 +171,7 @@ const Index = () => {
                 </div>
               </div>
               <p>
-                This experience now uses a live Gemini-powered backend to extract skills, adapt interview prompts, score answers, and produce the final learning plan.
+                This experience now uses a live AI backend to extract skills, adapt interview prompts, score answers, and produce the final learning plan.
               </p>
             </CardContent>
           </Card>
