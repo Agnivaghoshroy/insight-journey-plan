@@ -22,7 +22,9 @@ const Index = () => {
     currentQuestion,
     currentSkill,
     generateSkillMap,
+    isGeneratingMap,
     isParsingFile,
+    isSubmittingAnswer,
     jobDescription,
     parseResumeUpload,
     progressValue,
@@ -60,8 +62,8 @@ const Index = () => {
     }
   };
 
-  const handleGenerateMap = () => {
-    const ok = generateSkillMap();
+  const handleGenerateMap = async () => {
+    const ok = await generateSkillMap();
     if (ok) {
       toast({ title: "Skill map generated", description: "Priority skills and evidence are ready for review." });
     }
@@ -254,8 +256,8 @@ const Index = () => {
                   <Button variant="outline" onClick={resetAssessment}>
                     Reset
                   </Button>
-                  <Button size="lg" onClick={handleGenerateMap}>
-                    Generate skill map
+                  <Button size="lg" onClick={handleGenerateMap} disabled={isGeneratingMap}>
+                    {isGeneratingMap ? "Generating..." : "Generate skill map"}
                   </Button>
                 </div>
               </CardContent>
@@ -295,7 +297,12 @@ const Index = () => {
         ) : null}
 
         {state.step === "mapping" && state.session ? (
-          <SkillMatrixSection skills={state.skillMatrix} prioritizedCount={state.session.prioritizedSkills.length} onStart={startAssessment} />
+          <SkillMatrixSection
+            skills={state.skillMatrix}
+            prioritizedCount={state.session.prioritizedSkills.length}
+            onStart={startAssessment}
+            isStarting={isSubmittingAnswer}
+          />
         ) : null}
 
         {state.step === "assessment" && state.session ? (
@@ -303,6 +310,7 @@ const Index = () => {
             answerDraft={answerDraft}
             currentQuestion={currentQuestion}
             currentSkillLabel={currentSkill?.skill ?? null}
+            isSubmitting={isSubmittingAnswer}
             progressValue={progressValue}
             turnCount={state.session.turns.length}
             validationError={validationError}
