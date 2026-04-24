@@ -1,15 +1,12 @@
 import { useMemo, useState } from "react";
 import { z } from "zod";
 
+import { evaluateAssessmentAnswer, generateAssessmentMap } from "@/lib/assessmentApi";
 import {
   buildAssessmentSummary,
   buildLearningPlan,
-  buildSkillMatrix,
   createSession,
-  getQuestionForSkill,
   parseResumeFile,
-  prioritizeSkills,
-  recordTurn,
 } from "@/lib/assessmentEngine";
 import type { AssessmentSession, LearningPlan, ResumeParseResult, SkillAssessmentSummary, SkillEvidence } from "@/types/assessment";
 
@@ -48,16 +45,15 @@ export const useAssessmentMachine = () => {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [isParsingFile, setIsParsingFile] = useState(false);
+  const [isGeneratingMap, setIsGeneratingMap] = useState(false);
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
 
   const currentSkill = useMemo(() => {
     if (!state.session || state.session.complete) return null;
     return state.session.prioritizedSkills[state.session.currentSkillIndex] ?? null;
   }, [state.session]);
 
-  const currentQuestion = useMemo(() => {
-    if (!currentSkill || !state.session) return null;
-    return getQuestionForSkill(currentSkill, state.session.turns);
-  }, [currentSkill, state.session]);
+  const currentQuestion = state.session?.currentQuestion ?? null;
 
   const progressValue = useMemo(() => {
     if (!state.session?.prioritizedSkills.length) return 0;
@@ -83,7 +79,7 @@ export const useAssessmentMachine = () => {
     }
   };
 
-  const generateSkillMap = () => {
+  const generateSkillMap = async () => {
     const parsed = inputSchema.safeParse({ jobDescription, resumeText, targetRole });
 
     if (!parsed.success) {
@@ -91,20 +87,29 @@ export const useAssessmentMachine = () => {
       return false;
     }
 
-    const matrix = buildSkillMatrix(parsed.data.jobDescription, parsed.data.resumeText);
-    const prioritizedSkills = prioritizeSkills(matrix);
-
-    setState((previous) => ({
-      ...previous,
-      skillMatrix: matrix,
-      session: createSession(prioritizedSkills),
-      plan: null,
-      summaries: [],
-      step: "mapping",
-    }));
+    setIsGeneratingMap(true);
     setValidationError(null);
-    setUploadStatus(null);
-    return true;
+
+    try {
+      const response = await generateAssessmentMap(parsed.data);
+      const session = createSession(response.prioritizedSkills);
+
+      setState((previous) => ({
+        ...previous,
+        skillMatrix: response.skillMatrix,
+        session: { ...session, currentQuestion: response.firstQuestion },
+        plan: null,
+        summaries: [],
+        step: "mapping",
+      }));
+      setUploadStatus(null);
+      return true;
+    } catch (error) {
+      setValidationError(error instanceof Error ? error.message : "Unable to generate the AI skill map.");
+      return false;
+    } finally {
+      setIsGeneratingMap(false);
+    }
   };
 
   const startAssessment = () => {
@@ -113,25 +118,40 @@ export const useAssessmentMachine = () => {
     setAnswerDraft("");
   };
 
-  const submitAnswer = () => {
+  const submitAnswer = async () => {
     if (!state.session || !answerDraft.trim()) {
       setValidationError("Add an answer before continuing.");
       return;
     }
 
-    const nextSession = recordTurn(state.session, answerDraft.trim());
-    const summaries = nextSession.complete ? buildAssessmentSummary(nextSession) : [];
-    const plan = nextSession.complete ? buildLearningPlan(summaries) : null;
-
-    setState((previous) => ({
-      ...previous,
-      session: nextSession,
-      summaries,
-      plan,
-      step: nextSession.complete ? "results" : previous.step,
-    }));
-    setAnswerDraft("");
+    setIsSubmittingAnswer(true);
     setValidationError(null);
+
+    try {
+      const response = await evaluateAssessmentAnswer({
+        answer: answerDraft.trim(),
+        session: state.session,
+        targetRole,
+      });
+
+      const summaries = response.session.complete
+        ? response.summaries ?? buildAssessmentSummary(response.session)
+        : [];
+      const plan = response.session.complete ? response.plan ?? buildLearningPlan(summaries) : null;
+
+      setState((previous) => ({
+        ...previous,
+        session: response.session,
+        summaries,
+        plan,
+        step: response.session.complete ? "results" : previous.step,
+      }));
+      setAnswerDraft("");
+    } catch (error) {
+      setValidationError(error instanceof Error ? error.message : "Unable to score this answer right now.");
+    } finally {
+      setIsSubmittingAnswer(false);
+    }
   };
 
   const resetAssessment = () => {
@@ -149,7 +169,9 @@ export const useAssessmentMachine = () => {
     currentQuestion,
     currentSkill,
     generateSkillMap,
+    isGeneratingMap,
     isParsingFile,
+    isSubmittingAnswer,
     jobDescription,
     parseResumeUpload,
     progressValue,
