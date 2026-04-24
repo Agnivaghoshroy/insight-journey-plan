@@ -10,6 +10,7 @@ interface AssessmentChatProps {
   answerDraft: string;
   currentQuestion: SkillQuestion | null;
   currentSkillLabel: string | null;
+  isSubmitting?: boolean;
   progressValue: number;
   turnCount: number;
   validationError: string | null;
@@ -21,6 +22,7 @@ export const AssessmentChat = ({
   answerDraft,
   currentQuestion,
   currentSkillLabel,
+  isSubmitting,
   progressValue,
   turnCount,
   validationError,
@@ -70,11 +72,12 @@ export const AssessmentChat = ({
             onChange={(event) => onAnswerChange(event.target.value)}
             placeholder="Describe what you owned, the trade-offs you handled, and what changed because of your work."
             className="min-h-[220px] resize-none"
+            disabled={isSubmitting}
           />
           {validationError ? <p className="text-sm text-destructive">{validationError}</p> : null}
           <div className="flex justify-end">
-            <Button onClick={onSubmit} size="lg">
-              Continue
+            <Button onClick={onSubmit} size="lg" disabled={isSubmitting}>
+              {isSubmitting ? "Scoring..." : "Continue"}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>

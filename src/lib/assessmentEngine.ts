@@ -266,6 +266,7 @@ export const createSession = (prioritizedSkills: SkillEvidence[]): AssessmentSes
   currentSkillIndex: 0,
   turns: [],
   complete: prioritizedSkills.length === 0,
+  currentQuestion: prioritizedSkills.length > 0 ? getQuestionForSkill(prioritizedSkills[0], []) : null,
 });
 
 export const recordTurn = (session: AssessmentSession, answer: string) => {
@@ -291,6 +292,11 @@ export const recordTurn = (session: AssessmentSession, answer: string) => {
     turns: [...session.turns, turn],
     currentSkillIndex: needsFollowUp ? session.currentSkillIndex : session.currentSkillIndex + 1,
     complete: needsFollowUp ? false : session.currentSkillIndex + 1 >= session.prioritizedSkills.length,
+    currentQuestion: needsFollowUp
+      ? getQuestionForSkill(skill, [...session.turns, turn])
+      : session.prioritizedSkills[session.currentSkillIndex + 1]
+        ? getQuestionForSkill(session.prioritizedSkills[session.currentSkillIndex + 1], [...session.turns, turn])
+        : null,
   };
 };
 

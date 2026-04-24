@@ -1,107 +1,55 @@
 ## Plan
 
-Build a candidate-facing, single-session MVP that takes a job description plus resume, runs a focused AI interview on the most important skills, and returns a polished in-app learning plan with optional PDF export.
+Replace the current local assessment engine with a backend-powered Gemini workflow while preserving the existing candidate-facing flow and PDF export.
 
-### What the app will do
+### What will change
 
-1. **Input step**
-   - Let the candidate paste a job description.
-   - Let the candidate paste resume text or upload a resume file.
-   - Show a clean review step before starting the assessment.
+1. **Backend AI function**
+   - Add a Lovable Cloud backend function that calls the direct Gemini API using the existing `GEMINI_API_KEY` secret.
+   - Keep prompts and response shaping on the backend, not in the browser.
+   - Support these stages:
+     - skill extraction from job description + resume
+     - prioritized skill map generation
+     - adaptive question generation
+     - answer evaluation and scoring
+     - final learning-plan generation
 
-2. **Skill extraction and mapping**
-   - Extract required skills from the job description.
-   - Extract claimed skills and experience signals from the resume.
-   - Build a skill matrix with these buckets:
-     - Matched & strong
-     - Matched & weak
-     - Gap
-     - Bonus
-   - Prioritise the top **5–8 highest-value skills** for the assessment to keep the experience focused.
+2. **Frontend data flow update**
+   - Replace `buildSkillMatrix`, `getQuestionForSkill`, `recordTurn`, `buildAssessmentSummary`, and `buildLearningPlan` as the primary runtime path with backend calls.
+   - Keep the existing UI structure:
+     - input step
+     - skill mapping review
+     - assessment chat
+     - results and learning plan
+   - Add loading and error states for each backend step.
 
-3. **Conversational assessment flow**
-   - Present the interview as a professional chat-style experience.
-   - Start at an intermediate level for matched skills.
-   - Adapt follow-up questions based on answer strength.
-   - Ask clarifying probes when answers are vague.
-   - Keep the interview time-boxed and visibly progress-driven.
+3. **State model refinement**
+   - Extend the assessment types so the app can store AI-generated:
+     - normalized skill evidence
+     - per-turn evaluation notes
+     - next-question decisions
+     - final summaries and roadmap content
+   - Keep the current client state hook, but make it orchestrate backend requests instead of local heuristics.
 
-4. **Assessment scoring and gap analysis**
-   - Score each assessed skill with a simple, understandable proficiency scale.
-   - Compare required vs assessed proficiency.
-   - Rank the most important gaps by impact and learnability.
-   - Highlight adjacent skills the candidate can realistically learn next.
+4. **Quality and fallback handling**
+   - Validate backend inputs with schemas.
+   - Handle API failures, malformed outputs, and empty model responses gracefully.
+   - Keep a limited local fallback only if needed to avoid a dead-end experience during transient failures.
 
-5. **Personalised learning plan output**
-   - Generate an in-app report with:
-     - Top skill gaps
-     - Why each gap matters for the target role
-     - A milestone-based roadmap for each priority skill
-     - Curated current learning resources
-     - Time estimates per skill and for the full plan
-   - Support **PDF export** of the final plan.
+5. **Verification**
+   - Test the full candidate flow end to end.
+   - Confirm the learning plan still renders correctly and PDF export still works with AI-generated content.
 
-### UX and design direction
+### Technical details
 
-- Professional, minimal, recruiter-grade presentation.
-- No unnecessary visual noise or playful styling.
-- Strong hierarchy, generous spacing, and clear step-by-step flow.
-- Mobile-friendly layout that works well in narrow viewports.
+- Create a backend function in `supabase/functions/.../index.ts` with CORS and input validation.
+- Use the runtime secret `GEMINI_API_KEY`; do not expose it client-side.
+- Call the backend from the React app using the existing Lovable Cloud client.
+- Update `src/hooks/useAssessmentMachine.ts` to orchestrate async backend steps.
+- Update `src/types/assessment.ts` to support richer AI payloads.
+- Add a small client utility for invoking the backend cleanly.
+- Keep the current components (`AssessmentChat`, `SkillMatrixSection`, `LearningPlanSection`) and adapt them to the new data contract rather than redesigning the app.
 
-### Proposed app structure
+### Expected result
 
-```text
-Landing / Intro
-  -> Input workspace (JD + Resume)
-  -> Skill mapping summary
-  -> Conversational assessment
-  -> Results dashboard
-  -> Learning plan view
-  -> PDF export
-```
-
-### Implementation phases
-
-#### Phase 1 — MVP foundation
-- Replace the placeholder homepage with a polished single-page experience.
-- Create the main sections and state flow for input, assessment, and results.
-- Define reusable UI components for steps, cards, chat messages, and result sections.
-
-#### Phase 2 — AI workflow
-- Add AI-powered extraction for JD skills and resume skills.
-- Add AI-generated adaptive interview questions for the prioritised skills.
-- Add answer scoring, confidence handling, and gap ranking.
-- Add learning-plan generation with curated resources and time estimates.
-
-#### Phase 3 — Output and refinement
-- Build the final report view.
-- Add PDF export for the generated learning plan.
-- Refine loading, empty, and error states.
-- Polish copy, spacing, and interaction details for a clean final experience.
-
-## Technical details
-
-- Use the existing React + TypeScript + Tailwind setup.
-- Keep the frontend modular with clearly separated sections for:
-  - parsing/mapping
-  - interview state
-  - scoring/gap analysis
-  - learning plan rendering
-- Use Lovable AI through backend functions rather than client-side prompts.
-- Structure the AI flow so each stage has a focused responsibility:
-  - extract skills
-  - generate questions
-  - evaluate answers
-  - produce plan
-- For resume uploads, support text-first parsing in MVP and include file handling for common formats.
-- Generate the PDF from the final report so the exported version matches the in-app plan.
-- Keep the codebase clean by using small components, typed data models, and shared utility functions instead of oversized page files.
-
-## Deliverables
-
-- Candidate-facing single-session web app
-- Focused adaptive AI assessment for top 5–8 skills
-- Skill gap and adjacency analysis
-- Personalised learning plan shown in-app
-- PDF export of the learning plan
-- Minimal, professional UI with clean code structure
+The app will stop using the deterministic local scoring logic as its main engine and instead generate real Gemini-powered skill extraction, interview questions, evaluation, and learning plans through Lovable Cloud, with the same in-app flow and PDF export preserved.

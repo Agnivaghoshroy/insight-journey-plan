@@ -12,10 +12,12 @@ const bucketLabels: Record<SkillEvidence["bucket"], { label: string; variant: "d
 };
 
 export const SkillMatrixSection = ({
+  isStarting,
   onStart,
   prioritizedCount,
   skills,
 }: {
+  isStarting?: boolean;
   onStart: () => void;
   prioritizedCount: number;
   skills: SkillEvidence[];
@@ -93,8 +95,8 @@ export const SkillMatrixSection = ({
             <li>Raises or lowers difficulty based on answer depth.</li>
             <li>Uses follow-up probes when answers stay vague.</li>
           </ul>
-          <Button className="w-full" size="lg" onClick={onStart}>
-            Start assessment
+          <Button className="w-full" size="lg" onClick={onStart} disabled={isStarting}>
+            {isStarting ? "Preparing interview..." : "Start assessment"}
           </Button>
         </CardContent>
       </Card>
