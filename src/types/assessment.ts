@@ -13,6 +13,7 @@ export interface SkillEvidence {
   resumeContext: string[];
   confidence: number;
   bucket: SkillBucket;
+  evidenceSummary?: string;
 }
 
 export interface SkillQuestion {
@@ -21,6 +22,7 @@ export interface SkillQuestion {
   level: SkillLevel;
   prompt: string;
   rubric: string[];
+  focus?: string;
 }
 
 export interface SkillAssessmentTurn {
@@ -31,6 +33,8 @@ export interface SkillAssessmentTurn {
   score: number;
   notes: string;
   followUp?: boolean;
+  strengths?: string[];
+  gaps?: string[];
 }
 
 export interface SkillAssessmentSummary {
@@ -80,4 +84,16 @@ export interface AssessmentSession {
   currentSkillIndex: number;
   turns: SkillAssessmentTurn[];
   complete: boolean;
+  currentQuestion: SkillQuestion | null;
+}
+
+export interface GenerateMapResponse {
+  skillMatrix: SkillEvidence[];
+  prioritizedSkills: SkillEvidence[];
+}
+
+export interface EvaluateAnswerResponse {
+  session: AssessmentSession;
+  summaries?: SkillAssessmentSummary[];
+  plan?: LearningPlan | null;
 }
