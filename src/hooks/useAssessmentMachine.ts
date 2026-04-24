@@ -91,7 +91,11 @@ export const useAssessmentMachine = () => {
     setValidationError(null);
 
     try {
-      const response = await generateAssessmentMap(parsed.data);
+      const response = await generateAssessmentMap({
+        jobDescription: parsed.data.jobDescription,
+        resumeText: parsed.data.resumeText,
+        targetRole: parsed.data.targetRole,
+      });
       const session = createSession(response.prioritizedSkills);
 
       setState((previous) => ({
