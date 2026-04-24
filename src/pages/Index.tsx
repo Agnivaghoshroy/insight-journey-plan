@@ -171,7 +171,7 @@ const Index = () => {
                 </div>
               </div>
               <p>
-                This experience uses a deterministic local scoring engine for the MVP so the full workflow is usable immediately. The structure is ready for a backend AI upgrade path.
+                This experience now uses a live Gemini-powered backend to extract skills, adapt interview prompts, score answers, and produce the final learning plan.
               </p>
             </CardContent>
           </Card>
