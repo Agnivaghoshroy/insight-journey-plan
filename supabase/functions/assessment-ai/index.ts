@@ -96,6 +96,26 @@ const callGemini = async (systemInstruction: string, userPrompt: string) => {
 
   const rawText = await response.text();
   if (!response.ok) {
+    if (response.status === 429) {
+      throw new Response(
+        JSON.stringify({
+          error: "Gemini API quota exceeded",
+          details: "Your Gemini key has no remaining quota right now. Please enable billing or increase quota in Google AI Studio, then try again.",
+        }),
+        { status: 429, headers: jsonHeaders },
+      );
+    }
+
+    if (response.status === 403) {
+      throw new Response(
+        JSON.stringify({
+          error: "Gemini API access denied",
+          details: "This Gemini key cannot access the requested model. Please check model access and API permissions in Google AI Studio.",
+        }),
+        { status: 403, headers: jsonHeaders },
+      );
+    }
+
     throw new Error(`Gemini API error [${response.status}]: ${rawText}`);
   }
 
@@ -363,6 +383,10 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error("assessment-ai error", error);
+    if (error instanceof Response) {
+      return error;
+    }
+
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown backend error",
