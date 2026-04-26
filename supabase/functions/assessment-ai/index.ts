@@ -128,102 +128,68 @@ const callLovableAi = async (systemInstruction: string, userPrompt: string) => {
   return JSON.parse(content);
 };
 
+const questionSchema = z.object({
+  id: z.string(),
+  skill: z.string(),
+  level: z.enum(["beginner", "intermediate", "advanced"]).default("intermediate"),
+  prompt: z.string(),
+  rubric: z.array(z.string()).default([]),
+  focus: z.string().optional(),
+});
+
 const mapResponseSchema = z.object({
   skillMatrix: z.array(
     z.object({
       skill: z.string(),
       normalizedSkill: z.string(),
-      category: z.string(),
-      aliases: z.array(z.string()),
+      category: z.string().default("general"),
+      aliases: z.array(z.string()).default([]),
       jdWeight: z.number().min(1).max(10),
       jdRequiredLevel: z.number().min(1).max(10),
-      jdImportance: z.enum(["must-have", "nice-to-have"]),
-      resumeYears: z.number().min(0).max(40),
-      resumeContext: z.array(z.string()).max(3),
-      confidence: z.number().min(0).max(1),
+      jdImportance: z.enum(["must-have", "nice-to-have"]).default("nice-to-have"),
+      resumeYears: z.number().min(0).max(40).default(0),
+      resumeContext: z.array(z.string()).default([]),
+      confidence: z.number().min(0).max(1).default(0.5),
       bucket: z.enum(["matchedStrong", "matchedWeak", "gap", "bonus"]),
       evidenceSummary: z.string().optional(),
     }),
-  ).min(1).max(12),
-  prioritizedSkills: z.array(z.string()).min(1).max(6),
-  firstQuestion: z.object({
-    id: z.string(),
-    skill: z.string(),
-    level: z.enum(["beginner", "intermediate", "advanced"]),
-    prompt: z.string(),
-    rubric: z.array(z.string()).min(2).max(5),
-    focus: z.string().optional(),
-  }),
+  ).min(1),
+  prioritizedSkills: z.array(z.string()).min(1),
+  firstQuestion: questionSchema,
 });
 
 const evaluationResponseSchema = z.object({
   turn: z.object({
     score: z.number().min(1).max(10),
-    notes: z.string(),
-    strengths: z.array(z.string()).max(4),
-    gaps: z.array(z.string()).max(4),
-    followUp: z.boolean(),
+    notes: z.string().default(""),
+    strengths: z.array(z.string()).default([]),
+    gaps: z.array(z.string()).default([]),
+    followUp: z.boolean().default(false),
   }),
-  nextQuestion: z
-    .object({
-      id: z.string(),
-      skill: z.string(),
-      level: z.enum(["beginner", "intermediate", "advanced"]),
-      prompt: z.string(),
-      rubric: z.array(z.string()).min(2).max(5),
-      focus: z.string().optional(),
-    })
-    .nullable(),
-  complete: z.boolean(),
+  nextQuestion: questionSchema.nullable().optional(),
+  complete: z.boolean().default(false),
   summaries: z
     .array(
       z.object({
         skill: z.string(),
-        requiredLevel: z.number().min(1).max(10),
-        assessedLevel: z.number().min(1).max(10),
-        confidence: z.number().min(0).max(1),
-        gapSeverity: z.number().min(0),
-        rationale: z.string(),
-        adjacentSkills: z.array(z.string()).max(6),
+        requiredLevel: z.number().default(5),
+        assessedLevel: z.number().default(5),
+        confidence: z.number().default(0.5),
+        gapSeverity: z.number().default(0),
+        rationale: z.string().default(""),
+        adjacentSkills: z.array(z.string()).default([]),
       }),
     )
     .optional(),
   plan: z
     .object({
-      priorities: z.array(
-        z.object({
-          skill: z.string(),
-          requiredLevel: z.number(),
-          assessedLevel: z.number(),
-          confidence: z.number(),
-          gapSeverity: z.number(),
-          rationale: z.string(),
-          adjacentSkills: z.array(z.string()),
-        }),
-      ),
-      roadmaps: z.array(
-        z.object({
-          skill: z.string(),
-          rationale: z.string(),
-          currentLevelLabel: z.string(),
-          targetLevelLabel: z.string(),
-          timeEstimate: z.string(),
-          weeklyCommitment: z.string(),
-          milestones: z.array(z.string()).min(3).max(5),
-          resources: z.array(
-            z.object({
-              title: z.string(),
-              type: z.enum(["Documentation", "Course", "Project", "Book"]),
-              url: z.string().url(),
-            }),
-          ).min(2).max(5),
-          adjacentSkills: z.array(z.string()).max(6),
-        }),
-      ),
-      totalTimeline: z.string(),
-      weeklyHours: z.string(),
-      summary: z.string(),
+      priorities: z.array(z.any()).default([]),
+      roadmaps: z.array(z.any()).default([]),
+      totalTimeline: z.string().default(""),
+      weeklyHours: z.string().default(""),
+      summary: z.string().default(""),
     })
+    .passthrough()
     .nullable()
     .optional(),
 });
