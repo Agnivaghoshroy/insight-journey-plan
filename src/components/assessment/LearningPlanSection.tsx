@@ -127,18 +127,32 @@ export const LearningPlanSection = ({ plan, summaries, targetRole, turns, onExpo
                   <div>
                     <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Resources</h3>
                     <div className="grid gap-3">
-                      {(roadmap.resources ?? []).map((resource) => (
-                        <a
-                          key={resource.title}
-                          href={resource.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-md border border-border/70 bg-background/60 p-4 text-sm transition-colors hover:border-primary/40 hover:bg-background"
-                        >
-                          <div className="font-medium text-foreground">{resource.title}</div>
-                          <div className="mt-1 text-muted-foreground">{resource.type}</div>
-                        </a>
-                      ))}
+                      {(roadmap.resources ?? []).map((resource) => {
+                        // Rewrite google.com search URLs (which block embedding/return ERR_BLOCKED_BY_RESPONSE)
+                        // to DuckDuckGo so the link always opens cleanly.
+                        let safeUrl = resource.url || "#";
+                        try {
+                          const u = new URL(safeUrl);
+                          if (/(^|\.)google\.[a-z.]+$/.test(u.hostname) && u.pathname.startsWith("/search")) {
+                            const q = u.searchParams.get("q") ?? resource.title;
+                            safeUrl = `https://duckduckgo.com/?q=${encodeURIComponent(q)}`;
+                          }
+                        } catch {
+                          safeUrl = `https://duckduckgo.com/?q=${encodeURIComponent(resource.title)}`;
+                        }
+                        return (
+                          <a
+                            key={resource.title}
+                            href={safeUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="rounded-md border border-border/70 bg-background/60 p-4 text-sm transition-colors hover:border-primary/40 hover:bg-background"
+                          >
+                            <div className="font-medium text-foreground">{resource.title}</div>
+                            <div className="mt-1 text-muted-foreground">{resource.type}</div>
+                          </a>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
