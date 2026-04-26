@@ -1,55 +1,38 @@
-## Plan
+# Fix mid-interview validation crash
 
-Replace the current local assessment engine with a backend-powered Gemini workflow while preserving the existing candidate-facing flow and PDF export.
+## What's happening
 
-### What will change
+Two issues combine to produce the giant red error blob in the chat:
 
-1. **Backend AI function**
-   - Add a Lovable Cloud backend function that calls the direct Gemini API using the existing `GEMINI_API_KEY` secret.
-   - Keep prompts and response shaping on the backend, not in the browser.
-   - Support these stages:
-     - skill extraction from job description + resume
-     - prioritized skill map generation
-     - adaptive question generation
-     - answer evaluation and scoring
-     - final learning-plan generation
+1. **Backend schema is too strict** for mid-flow responses
+   - `nextQuestion` is required as an object, but it's legitimately `null` when the assessment completes.
+   - `summaries[]` and `plan` are validated even when the AI returns them as empty/partial during follow-up turns.
+   - `strengths` and `gaps` are capped at 4 items — the model frequently returns 5+, causing a hard crash.
+   - Some required nested fields (`requiredLevel`, `assessedLevel`, etc.) are demanded even when the model only sends a quick interim turn.
 
-2. **Frontend data flow update**
-   - Replace `buildSkillMatrix`, `getQuestionForSkill`, `recordTurn`, `buildAssessmentSummary`, and `buildLearningPlan` as the primary runtime path with backend calls.
-   - Keep the existing UI structure:
-     - input step
-     - skill mapping review
-     - assessment chat
-     - results and learning plan
-   - Add loading and error states for each backend step.
+2. **Frontend renders the raw Zod error**
+   - `assessmentApi.ts` concatenates `error + details` and rethrows. When `details` is the Zod `flatten()` object, it gets stringified and dumped into `validationError`, which `AssessmentChat.tsx` renders verbatim in red.
 
-3. **State model refinement**
-   - Extend the assessment types so the app can store AI-generated:
-     - normalized skill evidence
-     - per-turn evaluation notes
-     - next-question decisions
-     - final summaries and roadmap content
-   - Keep the current client state hook, but make it orchestrate backend requests instead of local heuristics.
+## Fix
 
-4. **Quality and fallback handling**
-   - Validate backend inputs with schemas.
-   - Handle API failures, malformed outputs, and empty model responses gracefully.
-   - Keep a limited local fallback only if needed to avoid a dead-end experience during transient failures.
+### Backend (`supabase/functions/assessment-ai/index.ts`)
+- Make the evaluation schema **lenient and forgiving**:
+  - `nextQuestion`: `.nullable().optional()` (handle null + missing).
+  - `summaries`: optional, each field `.optional()` with sensible defaults applied after parse.
+  - `plan`: already optional/nullable — keep, but make inner fields optional too.
+  - `strengths` / `gaps`: remove the `.max(4)` cap (or raise to 8) and `.optional()`.
+  - `turn.followUp`: `.optional().default(false)`.
+- Use `.safeParse()` instead of `.parse()`. If parsing fails, log the issue but **fall back gracefully**: build a minimal valid turn from what came back (score, notes if present) so the interview keeps moving instead of 500-ing.
+- Strengthen the system prompt: explicitly instruct the model to return at most 4 strengths/gaps and to set `nextQuestion: null` when complete.
+- Same lenient treatment for `mapResponseSchema` (loosen array caps, make `aliases`/`resumeContext` optional).
 
-5. **Verification**
-   - Test the full candidate flow end to end.
-   - Confirm the learning plan still renders correctly and PDF export still works with AI-generated content.
+### Frontend
+- **`src/lib/assessmentApi.ts`**: stop concatenating `details` into the thrown error message. Throw only the human-readable `error` string. Keep `details` for console logging only.
+- **`src/components/assessment/AssessmentChat.tsx`**: clamp `validationError` rendering to a single line and truncate at ~200 chars with `line-clamp-2` so a future malformed payload can never blow up the UI again.
+- **`src/hooks/useAssessmentMachine.ts`**: when an evaluation fails, keep the user's draft answer in the textarea (don't clear it) so they can retry without retyping.
 
-### Technical details
+## Result
 
-- Create a backend function in `supabase/functions/.../index.ts` with CORS and input validation.
-- Use the runtime secret `GEMINI_API_KEY`; do not expose it client-side.
-- Call the backend from the React app using the existing Lovable Cloud client.
-- Update `src/hooks/useAssessmentMachine.ts` to orchestrate async backend steps.
-- Update `src/types/assessment.ts` to support richer AI payloads.
-- Add a small client utility for invoking the backend cleanly.
-- Keep the current components (`AssessmentChat`, `SkillMatrixSection`, `LearningPlanSection`) and adapt them to the new data contract rather than redesigning the app.
-
-### Expected result
-
-The app will stop using the deterministic local scoring logic as its main engine and instead generate real Gemini-powered skill extraction, interview questions, evaluation, and learning plans through Lovable Cloud, with the same in-app flow and PDF export preserved.
+- Follow-up questions render normally (no more crash mid-interview).
+- If the AI returns a slightly out-of-spec payload, the function patches it instead of failing.
+- Any error that does surface shows a short, friendly message — never raw JSON.

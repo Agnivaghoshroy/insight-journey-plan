@@ -74,7 +74,9 @@ export const AssessmentChat = ({
             className="min-h-[220px] resize-none"
             disabled={isSubmitting}
           />
-          {validationError ? <p className="text-sm text-destructive">{validationError}</p> : null}
+          {validationError ? (
+            <p className="line-clamp-2 text-sm text-destructive">{validationError.length > 200 ? `${validationError.slice(0, 200)}…` : validationError}</p>
+          ) : null}
           <div className="flex justify-end">
             <Button onClick={onSubmit} size="lg" disabled={isSubmitting}>
               {isSubmitting ? "Scoring..." : "Continue"}

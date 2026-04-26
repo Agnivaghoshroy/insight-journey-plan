@@ -128,102 +128,68 @@ const callLovableAi = async (systemInstruction: string, userPrompt: string) => {
   return JSON.parse(content);
 };
 
+const questionSchema = z.object({
+  id: z.string(),
+  skill: z.string(),
+  level: z.enum(["beginner", "intermediate", "advanced"]).default("intermediate"),
+  prompt: z.string(),
+  rubric: z.array(z.string()).default([]),
+  focus: z.string().optional(),
+});
+
 const mapResponseSchema = z.object({
   skillMatrix: z.array(
     z.object({
       skill: z.string(),
       normalizedSkill: z.string(),
-      category: z.string(),
-      aliases: z.array(z.string()),
+      category: z.string().default("general"),
+      aliases: z.array(z.string()).default([]),
       jdWeight: z.number().min(1).max(10),
       jdRequiredLevel: z.number().min(1).max(10),
-      jdImportance: z.enum(["must-have", "nice-to-have"]),
-      resumeYears: z.number().min(0).max(40),
-      resumeContext: z.array(z.string()).max(3),
-      confidence: z.number().min(0).max(1),
+      jdImportance: z.enum(["must-have", "nice-to-have"]).default("nice-to-have"),
+      resumeYears: z.number().min(0).max(40).default(0),
+      resumeContext: z.array(z.string()).default([]),
+      confidence: z.number().min(0).max(1).default(0.5),
       bucket: z.enum(["matchedStrong", "matchedWeak", "gap", "bonus"]),
       evidenceSummary: z.string().optional(),
     }),
-  ).min(1).max(12),
-  prioritizedSkills: z.array(z.string()).min(1).max(6),
-  firstQuestion: z.object({
-    id: z.string(),
-    skill: z.string(),
-    level: z.enum(["beginner", "intermediate", "advanced"]),
-    prompt: z.string(),
-    rubric: z.array(z.string()).min(2).max(5),
-    focus: z.string().optional(),
-  }),
+  ).min(1),
+  prioritizedSkills: z.array(z.string()).min(1),
+  firstQuestion: questionSchema,
 });
 
 const evaluationResponseSchema = z.object({
   turn: z.object({
     score: z.number().min(1).max(10),
-    notes: z.string(),
-    strengths: z.array(z.string()).max(4),
-    gaps: z.array(z.string()).max(4),
-    followUp: z.boolean(),
+    notes: z.string().default(""),
+    strengths: z.array(z.string()).default([]),
+    gaps: z.array(z.string()).default([]),
+    followUp: z.boolean().default(false),
   }),
-  nextQuestion: z
-    .object({
-      id: z.string(),
-      skill: z.string(),
-      level: z.enum(["beginner", "intermediate", "advanced"]),
-      prompt: z.string(),
-      rubric: z.array(z.string()).min(2).max(5),
-      focus: z.string().optional(),
-    })
-    .nullable(),
-  complete: z.boolean(),
+  nextQuestion: questionSchema.nullable().optional(),
+  complete: z.boolean().default(false),
   summaries: z
     .array(
       z.object({
         skill: z.string(),
-        requiredLevel: z.number().min(1).max(10),
-        assessedLevel: z.number().min(1).max(10),
-        confidence: z.number().min(0).max(1),
-        gapSeverity: z.number().min(0),
-        rationale: z.string(),
-        adjacentSkills: z.array(z.string()).max(6),
+        requiredLevel: z.number().default(5),
+        assessedLevel: z.number().default(5),
+        confidence: z.number().default(0.5),
+        gapSeverity: z.number().default(0),
+        rationale: z.string().default(""),
+        adjacentSkills: z.array(z.string()).default([]),
       }),
     )
     .optional(),
   plan: z
     .object({
-      priorities: z.array(
-        z.object({
-          skill: z.string(),
-          requiredLevel: z.number(),
-          assessedLevel: z.number(),
-          confidence: z.number(),
-          gapSeverity: z.number(),
-          rationale: z.string(),
-          adjacentSkills: z.array(z.string()),
-        }),
-      ),
-      roadmaps: z.array(
-        z.object({
-          skill: z.string(),
-          rationale: z.string(),
-          currentLevelLabel: z.string(),
-          targetLevelLabel: z.string(),
-          timeEstimate: z.string(),
-          weeklyCommitment: z.string(),
-          milestones: z.array(z.string()).min(3).max(5),
-          resources: z.array(
-            z.object({
-              title: z.string(),
-              type: z.enum(["Documentation", "Course", "Project", "Book"]),
-              url: z.string().url(),
-            }),
-          ).min(2).max(5),
-          adjacentSkills: z.array(z.string()).max(6),
-        }),
-      ),
-      totalTimeline: z.string(),
-      weeklyHours: z.string(),
-      summary: z.string(),
+      priorities: z.array(z.any()).default([]),
+      roadmaps: z.array(z.any()).default([]),
+      totalTimeline: z.string().default(""),
+      weeklyHours: z.string().default(""),
+      summary: z.string().default(""),
     })
+    .passthrough()
     .nullable()
     .optional(),
 });
@@ -312,10 +278,14 @@ Deno.serve(async (req) => {
     const result = await callLovableAi(
       [
         "You are an interview evaluator for role-readiness assessment.",
-        "Return only valid JSON.",
+        "Return only valid JSON matching the outputContract.",
         "Score the answer from 1 to 10 for specificity, ownership, and technical depth.",
-        "If the answer is weak and no follow-up has been asked for this skill yet, provide a follow-up question on the same skill.",
-        "If all skills are complete, also provide summaries and a final learning plan.",
+        "Keep strengths and gaps to at most 4 short bullet strings each.",
+        "If the answer is weak and no follow-up has been asked for this skill yet, set followUp=true and provide a follow-up question on the same skill in nextQuestion.",
+        "If there are remaining skills, move to the next one with nextQuestion targeting that skill and set followUp=false.",
+        "Set nextQuestion to null ONLY when the entire interview is complete (complete=true).",
+        "When complete=true, also provide summaries (one per assessed skill) and a plan.",
+        "When complete=false, you may omit summaries and plan or send them as null/empty.",
       ].join(" "),
       JSON.stringify({
         targetRole: parsed.data.targetRole,
@@ -328,8 +298,8 @@ Deno.serve(async (req) => {
           turn: {
             score: 1,
             notes: "string",
-            strengths: ["string"],
-            gaps: ["string"],
+            strengths: ["string (max 4)"],
+            gaps: ["string (max 4)"],
             followUp: true,
           },
           nextQuestion: {
@@ -347,7 +317,27 @@ Deno.serve(async (req) => {
       }),
     );
 
-    const validated = evaluationResponseSchema.parse(result);
+    const validation = evaluationResponseSchema.safeParse(result);
+    if (!validation.success) {
+      console.error("evaluation schema mismatch, applying fallback", JSON.stringify(validation.error.issues).slice(0, 800));
+    }
+    const raw = (result ?? {}) as Record<string, any>;
+    const rawTurn = (raw.turn ?? {}) as Record<string, any>;
+    const validated: any = validation.success
+      ? validation.data
+      : {
+          turn: {
+            score: typeof rawTurn.score === "number" ? Math.max(1, Math.min(10, rawTurn.score)) : 5,
+            notes: typeof rawTurn.notes === "string" ? rawTurn.notes : "",
+            strengths: Array.isArray(rawTurn.strengths) ? rawTurn.strengths.slice(0, 8) : [],
+            gaps: Array.isArray(rawTurn.gaps) ? rawTurn.gaps.slice(0, 8) : [],
+            followUp: rawTurn.followUp === true,
+          },
+          nextQuestion: raw.nextQuestion && typeof raw.nextQuestion === "object" ? raw.nextQuestion : null,
+          complete: raw.complete === true,
+          summaries: Array.isArray(raw.summaries) ? raw.summaries : undefined,
+          plan: raw.plan && typeof raw.plan === "object" ? raw.plan : null,
+        };
     const nextTurns = [
       ...parsed.data.session.turns,
       {
