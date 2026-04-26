@@ -152,6 +152,7 @@ export const useAssessmentMachine = () => {
       }));
       setAnswerDraft("");
     } catch (error) {
+      // Keep the draft so the user can retry without retyping.
       setValidationError(error instanceof Error ? error.message : "Unable to score this answer right now.");
     } finally {
       setIsSubmittingAnswer(false);
