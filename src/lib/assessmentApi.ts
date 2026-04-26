@@ -44,7 +44,10 @@ const invokeAssessmentFunction = async <T>(action: AssessmentAction, payload: Ge
 
   const functionError = data as FunctionErrorResponse;
   if (functionError?.error) {
-    throw new Error(functionError.details ? `${functionError.error}: ${functionError.details}` : functionError.error);
+    if (functionError.details) {
+      console.error("assessment-ai details:", functionError.details);
+    }
+    throw new Error(functionError.error);
   }
 
   return data as T;
