@@ -342,9 +342,9 @@ export const buildLearningPlan = (summaries: SkillAssessmentSummary[]): Learning
         `Answer scenario-based interview prompts with clear trade-offs and outcomes.`,
       ],
       resources: [
-        { title: `${summary.skill} official documentation`, type: "Documentation", url: `https://www.google.com/search?q=${encodeURIComponent(summary.skill + " official documentation")}` },
-        { title: `${summary.skill} practical course`, type: "Course", url: `https://www.google.com/search?q=${encodeURIComponent(summary.skill + " practical course")}` },
-        { title: `${summary.skill} portfolio project ideas`, type: "Project", url: `https://www.google.com/search?q=${encodeURIComponent(summary.skill + " project ideas")}` },
+        { title: `${summary.skill} official documentation`, type: "Documentation", url: `https://duckduckgo.com/?q=${encodeURIComponent(summary.skill + " official documentation")}` },
+        { title: `${summary.skill} practical course`, type: "Course", url: `https://duckduckgo.com/?q=${encodeURIComponent(summary.skill + " practical course")}` },
+        { title: `${summary.skill} portfolio project ideas`, type: "Project", url: `https://duckduckgo.com/?q=${encodeURIComponent(summary.skill + " project ideas")}` },
       ],
       adjacentSkills: summary.adjacentSkills,
     };
