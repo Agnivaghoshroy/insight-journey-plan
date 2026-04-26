@@ -278,10 +278,14 @@ Deno.serve(async (req) => {
     const result = await callLovableAi(
       [
         "You are an interview evaluator for role-readiness assessment.",
-        "Return only valid JSON.",
+        "Return only valid JSON matching the outputContract.",
         "Score the answer from 1 to 10 for specificity, ownership, and technical depth.",
-        "If the answer is weak and no follow-up has been asked for this skill yet, provide a follow-up question on the same skill.",
-        "If all skills are complete, also provide summaries and a final learning plan.",
+        "Keep strengths and gaps to at most 4 short bullet strings each.",
+        "If the answer is weak and no follow-up has been asked for this skill yet, set followUp=true and provide a follow-up question on the same skill in nextQuestion.",
+        "If there are remaining skills, move to the next one with nextQuestion targeting that skill and set followUp=false.",
+        "Set nextQuestion to null ONLY when the entire interview is complete (complete=true).",
+        "When complete=true, also provide summaries (one per assessed skill) and a plan.",
+        "When complete=false, you may omit summaries and plan or send them as null/empty.",
       ].join(" "),
       JSON.stringify({
         targetRole: parsed.data.targetRole,
@@ -294,8 +298,8 @@ Deno.serve(async (req) => {
           turn: {
             score: 1,
             notes: "string",
-            strengths: ["string"],
-            gaps: ["string"],
+            strengths: ["string (max 4)"],
+            gaps: ["string (max 4)"],
             followUp: true,
           },
           nextQuestion: {
@@ -313,7 +317,27 @@ Deno.serve(async (req) => {
       }),
     );
 
-    const validated = evaluationResponseSchema.parse(result);
+    const validation = evaluationResponseSchema.safeParse(result);
+    if (!validation.success) {
+      console.error("evaluation schema mismatch, applying fallback", JSON.stringify(validation.error.issues).slice(0, 800));
+    }
+    const raw = (result ?? {}) as Record<string, any>;
+    const rawTurn = (raw.turn ?? {}) as Record<string, any>;
+    const validated: any = validation.success
+      ? validation.data
+      : {
+          turn: {
+            score: typeof rawTurn.score === "number" ? Math.max(1, Math.min(10, rawTurn.score)) : 5,
+            notes: typeof rawTurn.notes === "string" ? rawTurn.notes : "",
+            strengths: Array.isArray(rawTurn.strengths) ? rawTurn.strengths.slice(0, 8) : [],
+            gaps: Array.isArray(rawTurn.gaps) ? rawTurn.gaps.slice(0, 8) : [],
+            followUp: rawTurn.followUp === true,
+          },
+          nextQuestion: raw.nextQuestion && typeof raw.nextQuestion === "object" ? raw.nextQuestion : null,
+          complete: raw.complete === true,
+          summaries: Array.isArray(raw.summaries) ? raw.summaries : undefined,
+          plan: raw.plan && typeof raw.plan === "object" ? raw.plan : null,
+        };
     const nextTurns = [
       ...parsed.data.session.turns,
       {
