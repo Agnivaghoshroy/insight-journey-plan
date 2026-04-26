@@ -172,10 +172,28 @@ const evaluationResponseSchema = z.object({
     .array(
       z.object({
         skill: z.string(),
-        requiredLevel: z.number().default(5),
-        assessedLevel: z.number().default(5),
-        confidence: z.number().default(0.5),
-        gapSeverity: z.number().default(0),
+        requiredLevel: z.preprocess(
+          (v) => (v === null || v === undefined || v === "" ? 5 : Number(v)),
+          z.number().min(0).max(10).transform((v) => Math.max(1, Math.min(10, Math.round(v) || 5))),
+        ),
+        assessedLevel: z.preprocess(
+          (v) => (v === null || v === undefined || v === "" ? 5 : Number(v)),
+          z.number().min(0).max(10).transform((v) => Math.max(1, Math.min(10, Number(v.toFixed(1)) || 5))),
+        ),
+        confidence: z.preprocess(
+          (v) => {
+            if (v === null || v === undefined || v === "") return 0.5;
+            const n = Number(v);
+            if (Number.isNaN(n)) return 0.5;
+            // Accept either 0-1 or 0-100 scales
+            return n > 1 ? n / 100 : n;
+          },
+          z.number().min(0).max(1).transform((v) => Number(Math.max(0, Math.min(1, v)).toFixed(2))),
+        ),
+        gapSeverity: z.preprocess(
+          (v) => (v === null || v === undefined || v === "" ? 0 : Number(v)),
+          z.number().min(0).transform((v) => Number((Number.isNaN(v) ? 0 : v).toFixed(1))),
+        ),
         rationale: z.string().default(""),
         adjacentSkills: z.array(z.string()).default([]),
       }),
