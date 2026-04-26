@@ -139,9 +139,21 @@ export const useAssessmentMachine = () => {
       });
 
       const summaries = response.session.complete
-        ? response.summaries ?? buildAssessmentSummary(response.session)
+        ? (Array.isArray(response.summaries) && response.summaries.length > 0
+            ? response.summaries
+            : buildAssessmentSummary(response.session))
         : [];
-      const plan = response.session.complete ? response.plan ?? buildLearningPlan(summaries) : null;
+      const aiPlan = response.plan as LearningPlan | null | undefined;
+      const planIsValid =
+        aiPlan &&
+        Array.isArray(aiPlan.roadmaps) &&
+        Array.isArray(aiPlan.priorities) &&
+        typeof aiPlan.summary === "string";
+      const plan = response.session.complete
+        ? planIsValid
+          ? aiPlan!
+          : buildLearningPlan(summaries)
+        : null;
 
       setState((previous) => ({
         ...previous,
