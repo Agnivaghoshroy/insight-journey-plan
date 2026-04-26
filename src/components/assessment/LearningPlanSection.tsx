@@ -62,15 +62,15 @@ export const LearningPlanSection = ({ plan, summaries, targetRole, turns, onExpo
                   <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
                     <div className="rounded-sm bg-muted/70 px-3 py-2">
                       <div className="text-muted-foreground">Required</div>
-                      <div className="font-medium text-foreground">{summary.requiredLevel}/10</div>
+                      <div className="font-medium text-foreground">{Number.isFinite(summary.requiredLevel) ? summary.requiredLevel : 5}/10</div>
                     </div>
                     <div className="rounded-sm bg-muted/70 px-3 py-2">
                       <div className="text-muted-foreground">Assessed</div>
-                      <div className="font-medium text-foreground">{summary.assessedLevel}/10</div>
+                      <div className="font-medium text-foreground">{Number.isFinite(summary.assessedLevel) ? summary.assessedLevel : 5}/10</div>
                     </div>
                     <div className="rounded-sm bg-muted/70 px-3 py-2">
                       <div className="text-muted-foreground">Confidence</div>
-                      <div className="font-medium text-foreground">{Math.round(summary.confidence * 100)}%</div>
+                      <div className="font-medium text-foreground">{Number.isFinite(summary.confidence) ? Math.round(summary.confidence * 100) : 50}%</div>
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
