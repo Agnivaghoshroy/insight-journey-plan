@@ -74,7 +74,7 @@ export const LearningPlanSection = ({ plan, summaries, targetRole, turns, onExpo
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {summary.adjacentSkills.map((skill) => (
+                    {(summary.adjacentSkills ?? []).map((skill) => (
                       <Badge key={skill} variant="outline">
                         {skill}
                       </Badge>
@@ -86,7 +86,7 @@ export const LearningPlanSection = ({ plan, summaries, targetRole, turns, onExpo
         </Card>
 
         <div className="space-y-6">
-          {plan.roadmaps.map((roadmap) => (
+          {(plan.roadmaps ?? []).map((roadmap) => (
             <Card key={roadmap.skill} className="surface-panel border-border/70">
               <CardHeader className="space-y-2">
                 <div className="flex flex-wrap items-center gap-3">
@@ -117,7 +117,7 @@ export const LearningPlanSection = ({ plan, summaries, targetRole, turns, onExpo
                       <Sparkles className="h-4 w-4" /> Milestones
                     </h3>
                     <ul className="grid gap-2 text-sm text-muted-foreground">
-                      {roadmap.milestones.map((milestone) => (
+                      {(roadmap.milestones ?? []).map((milestone) => (
                         <li key={milestone} className="rounded-sm bg-muted/70 px-3 py-2">
                           {milestone}
                         </li>
@@ -127,7 +127,7 @@ export const LearningPlanSection = ({ plan, summaries, targetRole, turns, onExpo
                   <div>
                     <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Resources</h3>
                     <div className="grid gap-3">
-                      {roadmap.resources.map((resource) => (
+                      {(roadmap.resources ?? []).map((resource) => (
                         <a
                           key={resource.title}
                           href={resource.url}
@@ -146,7 +146,7 @@ export const LearningPlanSection = ({ plan, summaries, targetRole, turns, onExpo
                 <div>
                   <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.08em] text-muted-foreground">Why this is learnable next</h3>
                   <div className="flex flex-wrap gap-2">
-                    {roadmap.adjacentSkills.map((skill) => (
+                    {(roadmap.adjacentSkills ?? []).map((skill) => (
                       <Badge key={skill} variant="secondary">
                         {skill}
                       </Badge>
